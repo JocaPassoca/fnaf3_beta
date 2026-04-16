@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Springtrap Experience - Full System Override</title>
+    <style>
+        /* --- ESTILO BASE --- */
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #020202;
+            background-image: url('imagens/Springtrap02.webp'); 
+            background-size: cover; background-position: center;
+            overflow: hidden; cursor: none; font-family: 'Courier New', monospace;
+            transition: background-image 0.1s ease-in-out;
+        }
+
+        /* --- MONITOR --- */
+        .monitor-map {
+            position: fixed; bottom: 20px; right: 20px;
+            width: 220px; padding: 15px;
+            background: rgba(0, 10, 0, 0.9);
+            border: 2px solid #4a5d23; z-index: 100;
+            box-shadow: 0 0 15px rgba(74, 93, 35, 0.4);
+        }
+        .cam-label { color: #4a5d23; text-align: center; margin-bottom: 10px; font-weight: bold; }
+        .map-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .cam-btn {
+            background: #020202; color: #4a5d23; border: 1px solid #4a5d23;
+            padding: 12px; cursor: pointer; font-family: 'Courier New', monospace;
+        }
+        .cam-btn.active { background: #4a5d23; color: #000; animation: btnBlink 1.5s infinite; }
+
+        /* --- OVERLAYS --- */
+        .flashlight {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            pointer-events: none; z-index: 10;
+            background: radial-gradient(circle 180px at var(--x, 50%) var(--y, 50%), rgba(255, 255, 220, 0.12) 0%, rgba(0, 0, 0, 0.99) 80%);
+        }
+        .vhs-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: url('imagens/estatica.gif'); background-size: cover;
+            opacity: 0.1; z-index: 15; pointer-events: none;
+        }
+        .red-filter {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 0, 0, 0.4); mix-blend-mode: overlay;
+            z-index: 1100; display: none; pointer-events: none;
+        }
+        .vent-error-active { display: block !important; animation: ventPulse 2s infinite !important; }
+
+        /* --- UI E TEXTOS --- */
+        .ui-content {
+            position: absolute; width: 100%; top: 40%; text-align: center;
+            z-index: 12; pointer-events: auto;
+        }
+        .glitch {
+            color: #4a5d23; font-size: 3.5rem; font-weight: bold; text-transform: uppercase;
+            text-shadow: 2px 0 red, -2px 0 blue; animation: shakeGlitch 0.2s infinite;
+            -webkit-mask-image: radial-gradient(circle 180px at var(--mx) var(--my), black 0%, rgba(0,0,0,0.05) 100%);
+            mask-image: radial-gradient(circle 180px at var(--mx) var(--my), black 0%, rgba(0,0,0,0.05) 100%);
+            cursor: pointer;
+        }
+        .jumpscare-text {
+            position: fixed; top: 50%; left: 15%; transform: translateY(-50%);
+            color: #fff; font-size: 5rem; font-weight: 900; z-index: 1300;
+            display: none; text-shadow: 5px 5px #ff0000, -5px -5px #0000ff;
+            animation: extremeGlitch 0.1s infinite;
+            pointer-events: none; width: 100vw; text-align: center; white-space: nowrap;
+        }
+
+        /* --- JUMPSCARES --- */
+        .jumpscare-layer {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #000; background-position: center; background-repeat: no-repeat; background-size: cover;
+            z-index: 1200; display: none;
+        }
+        #phantom-jumpscare { z-index: 1250; background-color: transparent; }
+
+        /* --- ELEMENTOS / EASTER EGGS --- */
+        #hitbox { position: absolute; width: 220px; height: 220px; z-index: 20; top: 22%; left: 83%; }
+        #poster-nose { position: absolute; width: 45px; height: 45px; z-index: 500; cursor: pointer; top: 45%; left: 48%; }
+        #chica-head { position: absolute; width: 60px; height: 60px; z-index: 501; cursor: pointer; display: none; top: 40%; left: 35%;
+        background: rgba(255, 255, 0, 0.3) }
+        #crying-child { position: absolute; width: 150px; height: 150px; background: url('imagens/crying-child.png') center/contain no-repeat; z-index: 6; display: none; opacity: 0.05; transition: opacity 0.3s;}
+        #shadow-face { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('imagens/shadow-face.png') center/contain no-repeat; z-index: 1000; display: none; }
+        #golden-freddy {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: url('imagens/cam00.jpg') center/cover no-repeat;
+            z-index: 11; display: none;
+            -webkit-mask-image: radial-gradient(circle 250px at var(--x, 50%) var(--y, 50%), black 0%, transparent 100%);
+        }
+        .ghost-text {
+            position: fixed; color: white; font-family: 'Courier New', monospace; font-weight: bold; font-size: 2.5rem; z-index: 1500;
+            pointer-events: none; opacity: 0; text-shadow: 3px 3px red; animation: ghostShake 0.1s infinite;
+            -webkit-mask-image: radial-gradient(circle 180px at var(--mx-ghost) var(--my-ghost), black 0%, rgba(0,0,0,0.1) 100%);
+        }
+
+        /* --- MINIGAME --- */
+        #minigame-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 2000; display: none;
+            flex-direction: column; align-items: center; justify-content: center;
+        }
+        #minigame-container { border: 4px solid #fff; padding: 10px; background: #000; text-align: center; }
+        #minigameCanvas { background: #111; border: 2px solid #555; image-rendering: pixelated; }
+        #minigame-ui { color: #ff00ff; font-family: 'Courier New', monospace; font-size: 20px; margin-top: 10px; }
+
+        /* --- ANIMATIONS --- */
+        @keyframes extremeGlitch {
+            0% { clip: rect(42px, 9999px, 44px, 0); transform: skew(0.5deg); }
+            50% { clip: rect(85px, 9999px, 140px, 0); transform: skew(-0.8deg); }
+            100% { clip: rect(20px, 9999px, 120px, 0); transform: skew(0deg); }
+        }
+        @keyframes ventPulse { 0%, 100% { background: rgba(255, 0, 0, 0); } 50% { background: rgba(255, 0, 0, 0.5); } }
+        @keyframes shakeGlitch { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(-5px, 5px); } }
+        @keyframes intenseShake { 0%, 100% { transform: translate(0,0); } 50% { transform: translate(-10px, 10px); } }
+        @keyframes ghostShake { 0% { transform: translate(0, 0); } 50% { transform: translate(8px, -8px); } 100% { transform: translate(0, 0); } }
+        @keyframes btnBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    </style>
+</head>
+<body>
+
+    <div id="hitbox"></div>
+    <div id="poster-nose" onclick="playHonk()"></div>
+    <div id="chica-head" onclick="chicaEasterEgg()"></div>
+    <div id="crying-child"></div>
+    <div id="shadow-face"></div>
+    <div id="golden-freddy"></div>
+    <div class="vhs-overlay"></div>
+    <div id="red-overlay" class="red-filter"></div>
+    <div id="jumpscare" class="jumpscare-layer"></div>
+    <div id="phantom-jumpscare" class="jumpscare-layer"></div>
+    <div id="glitch-text" class="jumpscare-text">HE ALWAYS COMES BACK</div>
+    <div class="flashlight"></div>
+
+    <div id="minigame-screen">
+        <div id="minigame-container">
+            <canvas id="minigameCanvas"></canvas>
+            <div id="minigame-ui">COLETE OS BOLINHOS: <span id="score">0</span>/5</div>
+            <p style="color: white; font-size: 10px; margin-top: 10px;">USE AS SETAS DO TECLADO</p>
+        </div>
+    </div>
+
+    <div class="ui-content">
+        <h1 id="main-text" class="glitch" onclick="rebootSystem()">HE ALWAYS COMES BACK</h1>
+        <p id="vent-status" style="color: red; display: none; font-weight: bold; margin-top: 10px;">ERRO DE VENTILAÇÃO - REINICIE O SISTEMA</p>
+    </div>
+
+    <div class="monitor-map">
+        <div style="color: red; font-size: 0.7rem; font-weight: bold;">● REC <span id="clock">00:00:00</span></div>
+        <div class="cam-label" id="cam-name">CAM 02</div>
+        <div class="map-grid">
+            <button class="cam-btn active" onclick="changeCam('Springtrap02.webp', 22, 83, 'CAM 02', this)">CAM 02</button>
+            <button class="cam-btn" onclick="changeCam('cam01.webp', 27, 75, 'CAM 01', this)">CAM 01</button>
+            <button class="cam-btn" onclick="changeCam('cam05.webp', 15, 83, 'CAM 05', this)">CAM 05</button>
+            <button class="cam-btn" onclick="changeCam('cam08.webp', 5, 55, 'CAM 08', this)">CAM 08</button>
+        </div>
+    </div>
+
+    <audio id="ambience" loop src="imagens/background-sound.mp3"></audio>
+    <audio id="scream" src="imagens/jumpscare-sound.mp3"></audio>
+    <audio id="breath" loop src="imagens/breath.mp3"></audio>
+
+    <script>
+        const flashlight = document.querySelector('.flashlight');
+        const jumpscare = document.getElementById('jumpscare');
+        const redOverlay = document.getElementById('red-overlay');
+        const vhsOverlay = document.querySelector('.vhs-overlay');
+        const scream = document.getElementById('scream');
+        const ambience = document.getElementById('ambience');
+        const breath = document.getElementById('breath');
+        const hitbox = document.getElementById('hitbox');
+        const uiText = document.getElementById('main-text');
+        const child = document.getElementById('crying-child');
+        const shadow = document.getElementById('shadow-face');
+        const nose = document.getElementById('poster-nose');
+        const golden = document.getElementById('golden-freddy');
+        const glitchText = document.getElementById('glitch-text');
+        const chicaHead = document.getElementById('chica-head');
+
+        let jumpScareAtivado = false;
+        let inputBuffer = "";
+        let ventTimeout, ventJumpscareTimeout;
+
+        // --- LÓGICA MINIGAME ---
+        let minigameAtivado = false;
+        const canvas = document.getElementById('minigameCanvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 400; canvas.height = 300;
+        let chicaPos = { x: 50, y: 150, size: 20, speed: 7 };
+        let cupcakes = [];
+        let score = 0;
+
+        setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }, 1000);
+
+        document.addEventListener('click', () => { 
+            ambience.play(); breath.play(); breath.volume = 0; startVentTimer();
+        }, { once: true });
+
+        // --- VENTILAÇÃO ---
+        function startVentTimer() {
+            clearTimeout(ventTimeout);
+            ventTimeout = setTimeout(() => {
+                redOverlay.classList.add('vent-error-active');
+                document.getElementById('vent-status').style.display = 'block';
+                ventJumpscareTimeout = setTimeout(() => { triggerPhantomBB(); }, 10000); 
+            }, 45000);
+        }
+
+        function rebootSystem() {
+            if (redOverlay.classList.contains('vent-error-active')) {
+                clearTimeout(ventJumpscareTimeout);
+                redOverlay.classList.remove('vent-error-active');
+                document.getElementById('vent-status').style.display = 'none';
+                startVentTimer();
+                new Audio('imagens/cam-change.mp3').play();
+            }
+        }
+
+        function playHonk() { new Audio('imagens/honk-freddy.mp3').play(); }
+
+        // --- CHICA & MINIGAME ---
+        function chicaEasterEgg() {
+            new Audio('imagens/chica-laugh.mp3').play();
+            document.getElementById('minigame-screen').style.display = 'flex';
+            minigameAtivado = true;
+            score = 0;
+            document.getElementById('score').innerText = score;
+            cupcakes = [];
+            for(let i=0; i<5; i++) cupcakes.push({ x: Math.random()*350+20, y: Math.random()*250+20, collected: false });
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameLoop() {
+            if(!minigameAtivado) return;
+            ctx.fillStyle = "black"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "yellow"; ctx.fillRect(chicaPos.x, chicaPos.y, chicaPos.size, chicaPos.size);
+            cupcakes.forEach(c => {
+                if(!c.collected) {
+                    ctx.fillStyle = "#ff00ff"; ctx.fillRect(c.x, c.y, 10, 10);
+                    if(chicaPos.x < c.x + 10 && chicaPos.x + chicaPos.size > c.x && chicaPos.y < c.y + 10 && chicaPos.y + chicaPos.size > c.y) {
+                        c.collected = true; score++; document.getElementById('score').innerText = score;
+                    }
+                }
+            });
+            if(score === 5) {
+                minigameAtivado = false;
+                setTimeout(() => { document.getElementById('minigame-screen').style.display = 'none'; }, 500);
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- MOVIMENTO E PROXIMIDADE ---
+        document.addEventListener('mousemove', (e) => {
+            const x = e.clientX + 'px'; const y = e.clientY + 'px';
+            flashlight.style.setProperty('--x', x); flashlight.style.setProperty('--y', y);
+            golden.style.setProperty('--x', x); golden.style.setProperty('--y', y);
+            
+            const tRect = uiText.getBoundingClientRect();
+            uiText.style.setProperty('--mx', (e.clientX - tRect.left) + 'px');
+            uiText.style.setProperty('--my', (e.clientY - tRect.top) + 'px');
+
+            document.querySelectorAll('.ghost-text').forEach(g => {
+                const r = g.getBoundingClientRect();
+                g.style.setProperty('--mx-ghost', (e.clientX - r.left) + 'px');
+                g.style.setProperty('--my-ghost', (e.clientY - r.top) + 'px');
+            });
+
+            const rect = hitbox.getBoundingClientRect();
+            const dist = Math.sqrt(Math.pow(e.clientX - (rect.left + rect.width/2), 2) + Math.pow(e.clientY - (rect.top + rect.height/2), 2));
+            
+            if (!jumpScareAtivado && !minigameAtivado) {
+                let proximity = Math.max(0.1, 1 - (dist / 600)); 
+                vhsOverlay.style.opacity = proximity > 0.8 ? 0.8 : proximity;
+                breath.volume = proximity > 1 ? 1 : proximity;
+            }
+
+            if (child.style.display === 'block') {
+                const cRect = child.getBoundingClientRect();
+                const dChild = Math.sqrt(Math.pow(e.clientX - (cRect.left + cRect.width/2), 2) + Math.pow(e.clientY - (cRect.top + cRect.height/2), 2));
+                child.style.opacity = dChild < 150 ? "0.6" : "0.05";
+            }
+
+            if (e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom && !jumpScareAtivado && !minigameAtivado) {
+                triggerJumpscare();
+            }
+        });
+
+        // --- TECLADO (ITS ME & MINIGAME) ---
+        document.addEventListener('keydown', (e) => {
+            if(minigameAtivado) {
+                if(e.key === "ArrowUp") chicaPos.y -= chicaPos.speed;
+                if(e.key === "ArrowDown") chicaPos.y += chicaPos.speed;
+                if(e.key === "ArrowLeft") chicaPos.x -= chicaPos.speed;
+                if(e.key === "ArrowRight") chicaPos.x += chicaPos.speed;
+                return;
+            }
+            inputBuffer += e.key.toLowerCase();
+            if (inputBuffer.includes("itsme")) {
+                new Audio('imagens/its-me.mp3').play();
+                golden.style.display = 'block';
+                document.body.style.animation = "intenseShake 0.1s infinite";
+                for(let i=0; i<35; i++) {
+                    let t = document.createElement('div'); t.className = 'ghost-text'; t.innerText = "ITS ME";
+                    t.style.top = Math.random()*90+"vh"; t.style.left = Math.random()*90+"vw";
+                    document.body.appendChild(t); setTimeout(() => t.style.opacity = "0.9", 100);
+                }
+                setTimeout(() => {
+                    golden.style.display='none'; document.body.style.animation="none";
+                    document.querySelectorAll('.ghost-text').forEach(el=>el.remove()); inputBuffer="";
+                }, 16000);
+            }
+        });
+
+        // --- CÂMERAS ---
+        function changeCam(img, top, left, name, btn) {
+            if (Math.random() < 0.05) {
+                jumpscare.style.backgroundImage = "url('imagens/rare-screen.webp')";
+                jumpscare.style.display = 'block'; setTimeout(() => { jumpscare.style.display = 'none'; }, 200);
+            }
+            if (Math.random() < 0.03) {
+                shadow.style.display = 'block'; setTimeout(() => { shadow.style.display = 'none'; }, 100);
+            }
+            new Audio('imagens/cam-change.mp3').play();
+            vhsOverlay.style.opacity = "1";
+            setTimeout(() => {
+                document.body.style.backgroundImage = `url('imagens/${img}')`;
+                hitbox.style.top = top + "%"; hitbox.style.left = left + "%";
+                document.getElementById('cam-name').innerText = name;
+                nose.style.display = (name === 'CAM 02') ? 'block' : 'none';
+                child.style.display = (name === 'CAM 08') ? 'block' : 'none';
+                chicaHead.style.display = (name === 'CAM 08') ? 'block' : 'none';
+                document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active'); vhsOverlay.style.opacity = "0.1";
+            }, 150);
+        }
+
+        // --- JUMPSCARES ---
+        function triggerJumpscare() {
+            jumpScareAtivado = true;
+            jumpscare.style.backgroundImage = "url('imagens/encarando.gif')";
+            jumpscare.style.display = 'block';
+            setTimeout(() => {
+                jumpscare.style.backgroundImage = "url('imagens/ataque.gif')";
+                redOverlay.style.display = 'block'; glitchText.style.display = 'block';
+                scream.currentTime = 0; scream.play();
+                document.body.style.animation = "intenseShake 0.05s infinite";
+                setTimeout(() => {
+                    jumpscare.style.display = 'none'; redOverlay.style.display = 'none';
+                    glitchText.style.display = 'none'; document.body.style.animation = "none";
+                    setTimeout(() => { jumpScareAtivado = false; }, 2000);
+                }, 1500);
+            }, 2000);
+        }
+
+        function triggerPhantomBB() {
+            const pJ = document.getElementById('phantom-jumpscare');
+            const pS = new Audio('imagens/phanton-BB.mp3');
+            pJ.style.backgroundImage = "url('imagens/phantom-BB.gif')";
+            pJ.style.display = 'block'; pS.play();
+            vhsOverlay.style.opacity = "1";
+            document.body.style.animation = "intenseShake 0.1s infinite";
+            setTimeout(() => {
+                pJ.style.display = 'none'; document.body.style.animation = "none";
+                vhsOverlay.style.opacity = "0.1";
+            }, 1500);
+        }
+    </script>
+</body>
+</html>
